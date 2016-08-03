@@ -2,46 +2,53 @@ package com.pearson.pscautomation.framework;
 
 import io.appium.java_client.AppiumDriver;
 import io.appium.java_client.MobileElement;
-import io.appium.java_client.ios.IOSDriver;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.io.FilenameUtils;
-import org.openqa.selenium.remote.DesiredCapabilities;
+import org.apache.log4j.Logger;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 
-public class BaseTestCase {
+import com.pearson.pscautomation.framework.config.PropertyReader;
+import com.pearson.pscautomation.framework.driver.LoadiOSDriver;
 
+public class BaseTestCase {
+	
+	static Logger log;
 	protected AppiumDriver<MobileElement> driver;
-	protected int timeOut = 30;	
-	private int port = 0;
-	private String udid;
+	protected static Map<String, String> propMap;
+	protected int timeOut = 30;
+	protected int port = 0;
+	protected String udid;
 
 	public BaseTestCase(String udid, int port) {
 		this.udid = udid;
 		this.port = port;
 	}
+	
+	public static void init(){
+		log = Logger.getLogger(BaseTestCase.class.getName());
+		propMap = PropertyReader.readConfigFile();
+	}
 
 	@BeforeClass
-	public void setUp() {		
+	public void loadDriverMethod() {		
 		try {
-			driver = new IOSDriver<MobileElement>(new URL("http://127.0.0.1:"+port+"/wd/hub"), getDesiredCapabilities(this.getAppAbsoultePath()));
+			LoadiOSDriver loadiOSDriver = new LoadiOSDriver();
+			if(propMap.get("Platform").equalsIgnoreCase("iOS")) {
+				driver = loadiOSDriver.loadDriverMethod(propMap);
+			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
 		driver.manage().timeouts().implicitlyWait(timeOut, TimeUnit.SECONDS);	
 
 	}
@@ -52,45 +59,7 @@ public class BaseTestCase {
 	}
 
 	/**
-	 * @author Javed
-	 * Get absolute path of android application apk file.
-	 * Apk file is under the app folder
-	 * @param no parameter
-	 * @return absolute path.
-	 */
-	public String getAppAbsoultePath(){
-		File classpathRoot = new File(System.getProperty("user.dir"));
-		File appDir = new File(classpathRoot, "/app");
-		File app = new File(appDir, getAppName());
-		String appName = app.getAbsolutePath();
-		return appName;
-	}
-
-	/**
-	 * @author Javed
-	 * Setup configuration in DesiredCapabilities which appium used to run test 
-	 * @param appPath application absolute path
-	 * @return object of DesiredCapabilities.
-	 */
-	public DesiredCapabilities getDesiredCapabilities(String appPath) throws Exception{
-		if(this.udid.equals(null) ||  this.udid.equals("") )
-			throw new Exception("udid value is null");
-
-		DesiredCapabilities capabilities = new DesiredCapabilities();
-		capabilities.setCapability("platformName", "Android");
-		capabilities.setCapability("deviceName", "Android");
-		capabilities.setCapability("platformVersion", "4.4.2");
-		capabilities.setCapability("app", appPath);
-		/*capabilities.setCapability("appPackage", "");
-		capabilities.setCapability("appActivity", "");*/
-		capabilities.setCapability("udid", udid);
-		return capabilities;
-	}
-
-
-	/**
-	 * @author Javed
-	 * It relaunch the application.
+	 * It re-launches the application.
 	 */
 	public void relaunchApp() {
 		driver.closeApp();
@@ -98,33 +67,10 @@ public class BaseTestCase {
 	}
 
 	/**
-	 * @author Javed
-	 * This function get run time application name from  app folder
-	 */
-	public String getAppName() {
-		String fileName = "";
-		File folder = new File("app");
-		File[] listOfFiles = folder.listFiles();
-		for (File listFile : listOfFiles) {
-			String fileExtension = FilenameUtils.getExtension(listFile
-					.getAbsolutePath());
-			if (fileExtension.equals("apk")) {
-				fileName = listFile.getName();
-				break;
-			}
-		}
-		return fileName;
-
-	}
-
-
-	/**
-	 * @author Javed
 	 * It capture all devices id attached with machine
 	 * @return return list of attached devices id .
 	 */
 	public static List<String> getAttachedDevicesList() {
-
 		List<String> devicesID = new ArrayList<String>();
 		try {
 			Process process = Runtime.getRuntime().exec(getAndroidPath() + "//platform-tools//adb devices");
@@ -146,24 +92,31 @@ public class BaseTestCase {
 
 
 	/**
-	 * @author Javed
 	 * prepare data provider contains devices id and Appium server port 
 	 * By default Appium server port stared from 4723 and one increment for next device 
 	 */
 	@DataProvider(name = "listDevices", parallel = true)
 	public static Object[][] listDevices() {
-
-		Object obj[][] = new Object[getAttachedDevicesList().size()][2];
-		List<String> devicesList = getAttachedDevicesList();
+		List<String> listOfDevices = getAttachedDevicesList();
+		Object obj[][] = new Object[listOfDevices.size()][2];
+		List<String> devicesList = listOfDevices;
 		for (int i = 0; i < devicesList.size(); i++) {
 			obj[i][0] = devicesList.get(i);
 			obj[i][1] = 4723 + i;
 		}
 		return obj;
 	}
+	
+	@DataProvider(name = "listDevicesFromConfig", parallel = true)
+	public static Object[][] listDevicesFromConfig() {
+		init();
+		Object[][] objectArr = new Object[1][2];
+		objectArr[0][0] = propMap.get("UDID").toString();
+		objectArr[0][1] = Integer.valueOf(propMap.get("USBPort"));
+		return  objectArr;
+	}
 
 	/**
-	 * @author Javed
 	 * @return android home path
 	 */
 	public static String getAndroidPath() {

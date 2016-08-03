@@ -3,12 +3,12 @@ import org.testng.annotations.Factory;
 import org.testng.annotations.Test;
 
 import com.pearson.pscautomation.framework.BaseTestCase;
-import com.pearson.pscautomation.framework.FileReader;
+import com.pearson.pscautomation.framework.testdata.FileReader;
 
 
 public class LoginLogoutTests extends BaseTestCase {
 	
-	@Factory(dataProvider = "listDevices")
+	@Factory(dataProvider = "listDevicesFromConfig")
 	public LoginLogoutTests(String udid, int port){
 		super(udid, port);
 	}
